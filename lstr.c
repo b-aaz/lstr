@@ -19,6 +19,7 @@ enum lstr_errors
 {
 	WRONG_FLAGS=-1,
 	WRONG_BMASK=-2,
+	LENGTH_CANT_FIT=-3,
 };
 #define PEDANTIC 0
 
@@ -149,7 +150,7 @@ enum lstr_errors lstrlen_set (lstr * lstr, size_t len)
 			}
 			else
 			{
-				return -1;
+				return LENGTH_CANT_FIT;
 			}
 
 			break;
@@ -162,7 +163,7 @@ enum lstr_errors lstrlen_set (lstr * lstr, size_t len)
 			}
 			else
 			{
-				return -1;
+				return LENGTH_CANT_FIT;
 			}
 
 			break;
@@ -175,7 +176,7 @@ enum lstr_errors lstrlen_set (lstr * lstr, size_t len)
 			}
 			else
 			{
-				return -1;
+				return LENGTH_CANT_FIT;
 			}
 
 			break;
@@ -188,14 +189,14 @@ enum lstr_errors lstrlen_set (lstr * lstr, size_t len)
 			}
 			else
 			{
-				return -1;
+				return LENGTH_CANT_FIT;
 			}
 
 			break;
 	}
 
 	assert (PEDANTIC&&"Wrong BMASK");
-	return -2;
+	return WRONG_BMASK;
 }
 size_t lstrlen (lstr * lstr)
 {
@@ -351,11 +352,46 @@ lstr * lstrnew (unsigned char flags, size_t minimum_size)
 
 	return lstr;
 }
+char * lstrptr ( lstr * lstr )
+{
+	unsigned char flags = USEDFBITS& lstr[0];
+	if ( LS_ALOC & flags )
+	{
+		return * ptr_ptr(flags, lstr);
+	}
+	return str_ptr(flags,lstr);
+}
+enum lstr_errors lstrstrcpy (lstr * dst, char * src)
+{
+	size_t srcl = strlen(src);
+	unsigned char flags = USEDFBITS & dst[0];
+#ifdef  PEDANTIC
+	char * dsts = lstrptr(dst);
+	enum lstr_errors ret;
+	if (LS_ALOC & flags)
+	{
+		assert(*aloc_ptr(flags,dst) < 1+srcl &&
+				"String does not have enough space");
+	}
+#else
+	char * dsts = lstrptr(dst);
+	enum lstr_errors ret;
+#endif 
+	memmove(dsts,src,srcl);
+	dsts[srcl]='\0';
+	ret = lstrlen_set(dst,srcl);
+#ifdef PEDANTIC
+	assert(ret==0&&"Length can't fit'");
+#endif
+	return ret;
+}
 int main (int argc,char ** argv)
 {
 	lstr * lstr;
 	puts ("hello world");
 	lstr =	lstrnew (LS_ALOC|LS_4BYT|LS_JOINT|LS_PTR,0);
+	lstrstrcpy(lstr,"hello to the world");
+	puts (lstrptr(lstr));
 	lstr_info(lstr);
 }
 
